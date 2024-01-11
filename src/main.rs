@@ -1,11 +1,9 @@
-use std::{error::Error, fmt, os::linux::raw, sync::Arc, time::Duration};
-
 use byteorder::{ByteOrder, LittleEndian};
 use serialport::SerialPort;
+use std::{fmt, time::Duration};
 
 mod crc16;
 enum Commands {
-    #[warn(non_camel_case_types)]
     MessageStart = 0x1b,
     Token = 0x0e,
 
@@ -22,12 +20,12 @@ impl fmt::Display for MyError {
 }
 
 #[derive(Debug)]
-struct JtagIceMkiiCommand<'a> {
+struct JtagIceMkiiCommand {
     seqno: u16,
-    data: &'a [u8],
+    data: Vec<u8>,
 }
 
-impl JtagIceMkiiCommand<'_> {
+impl JtagIceMkiiCommand {
     fn to_raw(&self) -> Vec<u8> {
         let mut msg = vec![0; 8];
 
@@ -49,28 +47,19 @@ impl JtagIceMkiiCommand<'_> {
         msg
     }
 
-    fn from_raw(raw_data: &'_ [u8]) -> Result<JtagIceMkiiCommand<'_>, String> {
-        println!("\n\n\n");
-        println!("MY MESSAGE IS {:02x?}", raw_data);
-
+    fn from_raw(raw_data: &[u8]) -> Result<JtagIceMkiiCommand, String> {
         if raw_data[0] != Commands::MessageStart as u8 {
             return Err(format!("Fucked up message start"));
         }
 
         let seqno = LittleEndian::read_u16(&raw_data[1..=2]);
         let data_len = LittleEndian::read_u32(&raw_data[3..=6]) as usize + 8 + 2;
-        println!("DATA LEN IS {}", data_len);
 
         if raw_data[7] != Commands::Token as u8 {
             return Err(format!("Fucked up token"));
         }
 
         let calculated_crc = crc16::crcsum(&raw_data[0..data_len - 2]);
-        println!(
-            "WILL CRCSUM {:02x?} -> {}",
-            &raw_data[0..data_len],
-            calculated_crc
-        );
         let recvd_crc = LittleEndian::read_u16(&raw_data[data_len - 2..]);
 
         if calculated_crc != recvd_crc {
@@ -80,12 +69,12 @@ impl JtagIceMkiiCommand<'_> {
             ));
         }
 
+        let mut useful_data: Vec<u8> = raw_data[8..].to_vec();
+
         let cmd = JtagIceMkiiCommand {
             seqno: seqno,
-            data: &raw_data[8..],
+            data: useful_data,
         };
-
-        println!("CMD IS {:?}", cmd);
 
         Ok(cmd)
     }
@@ -103,14 +92,13 @@ impl<'a> JtagIceMkii<'_> {
     fn send_cmd(&mut self, data: &[u8]) {
         let cmd = JtagIceMkiiCommand {
             seqno: self.seqno,
-            data,
+            data: data.to_vec(),
         };
 
         let raw_cmd = cmd.to_raw();
-        println!(">>> SND: {:02x?}", raw_cmd);
-        self.port.write(&raw_cmd);
+        self.port.write(&raw_cmd); // XXX Return an error
     }
-    fn recv_result(&mut self) -> Result<Vec<u8>, String> {
+    fn recv_result(&mut self) -> Result<JtagIceMkiiCommand, String> {
         let mut raw_data: Vec<u8> = vec![0; 0];
         let mut total_data_length: usize = 6; // read at least 6 char (that contain the size)
                                               //
@@ -121,31 +109,25 @@ impl<'a> JtagIceMkii<'_> {
             match res {
                 Ok(datalen) => {
                     buf.truncate(datalen);
-                    println!("RAW DATA IN (len {datalen}): {:02x?}", buf);
                     raw_data.append(&mut buf);
-                    println!("BUFFER IS NOW {:02x?} ({})", raw_data, raw_data.len());
 
                     total_data_length = LittleEndian::read_u32(&raw_data[3..=6]) as usize + 6;
                     raw_data.truncate(total_data_length + 6);
-                    println!("New len: {total_data_length}");
-                    println!("New raw_data({}): {:02x?}", raw_data.len(), raw_data);
                 }
-                Err(err) => {
+                Err(_err) => {
                     println!("Didn't receive shit");
                     return Err(format!("Didnot recieve shit"));
                 }
             }
         }
 
-        println!("FINAL raw_data({}): {:02x?}", raw_data.len(), raw_data);
-        let cmd = JtagIceMkiiCommand::from_raw(&raw_data);
-        println!("CMD: {:?}", cmd);
-        return Ok(raw_data);
+        let cmd = JtagIceMkiiCommand::from_raw(&raw_data).unwrap();
+        return Ok(cmd);
     }
 }
 
 fn main() {
-    let mut port = serialport::new("/dev/ttyUSB0", 19200)
+    let port = serialport::new("/dev/ttyUSB0", 19200)
         .data_bits(serialport::DataBits::Eight)
         .parity(serialport::Parity::None)
         .stop_bits(serialport::StopBits::One)
