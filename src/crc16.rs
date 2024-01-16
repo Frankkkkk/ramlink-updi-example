@@ -30,6 +30,6 @@ pub fn crcsum(message: &[u8]) -> u16 {
         crc = (crc >> 8) ^ CRC16_TABLE[((crc ^ byte as u16) & 0x00FF) as usize];
     }
 
-    println!("CRC of {:02x?} is {}", message, crc);
+    //println!("CRC of {:02x?} is {}", message, crc);
     crc
 }
