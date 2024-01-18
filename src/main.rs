@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use byteorder::{ByteOrder, LittleEndian};
 
+//use crate::jtagmk2::JtagIceMkiiCommand;
+
 mod jtagmk2;
 
 fn main() {
@@ -17,14 +19,40 @@ fn main() {
 
     dgr.send_cmd(&[jtagmk2::Commands::GetSignOn as u8]);
     dgr.recv_result();
+
     dgr.send_cmd(&[jtagmk2::Commands::GetSignOn as u8]);
     dgr.recv_result();
+    dgr.increase_seqno();
+
+    dgr.send_cmd(&[jtagmk2::Commands::SetParam as u8, 0x03, 0x06]);
+    dgr.recv_result();
+    dgr.increase_seqno();
 
     dgr.send_cmd(&[jtagmk2::Commands::GetSync as u8]);
+    let a = dgr.recv_result();
+    dgr.increase_seqno();
+
+    dgr.send_cmd(&[jtagmk2::Commands::SetParam as u8, 0x05, 0x07]);
+    dgr.recv_result();
+    dgr.increase_seqno();
+
+    //    dgr.send_cmd(&[jtagmk2::Commands::Reset as u8, 0x01]);
+    //    let a = dgr.recv_result();
+    //    dgr.increase_seqno();
+
+    //let dev_descr = [0; 248];
+    //let cmd = vec![jtagmk2::Commands::SetDeviceDescriptor];
+    //cmd.extend(dev_descr.iter());
+    //dgr.send_cmd(cmd.as_slice());
+    dgr.send_cmd(&[jtagmk2::Commands::SetDeviceDescriptor as u8]);
     dgr.recv_result();
 
+    dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
+    let a = dgr.recv_result();
+    println!(">>> {:?}", a.unwrap());
+
     /* Flash looks like so:
-        18465     memory "flash"
+    18465     memory "flash"
     18466         size               = 4096;
     18467         page_size          = 64;
     18468         offset             = 0x8000;
@@ -35,12 +63,16 @@ fn main() {
 
          */
 
-    for mem_addr in 0x8000..0x8002 {
+    println!("Hello !");
+    //for mem_addr in 0x3ff0..0x3fff {
+    for mem_addr in 0x8000..0x8010 {
+        println!("in for!");
         let mut numbytes_buf = [0u8; 2];
         LittleEndian::write_u16(&mut numbytes_buf, 1);
 
         let mut addr_buf = [0u8; 2];
         LittleEndian::write_u16(&mut addr_buf, mem_addr);
+        println!("Will ask {}", mem_addr);
         dgr.send_cmd(&[
             jtagmk2::Commands::ReadMemory as u8,
             0,
@@ -52,7 +84,8 @@ fn main() {
             addr_buf[1],
         ]);
 
-        println!("ADDR {mem_addr:02x} = ");
-        let rcv = dgr.recv_result();
+        let rcv = dgr.recv_result().unwrap();
+        println!("RECVD: {:?}", rcv);
+        println!("ADDR {mem_addr:02x} = {:02x?}", rcv.data[0]);
     }
 }
