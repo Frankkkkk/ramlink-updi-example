@@ -24,30 +24,106 @@ fn main() {
     dgr.recv_result();
     dgr.increase_seqno();
 
+    println!(">>> Will set param");
     dgr.send_cmd(&[jtagmk2::Commands::SetParam as u8, 0x03, 0x06]);
     dgr.recv_result();
     dgr.increase_seqno();
 
+    println!(">>> Will get sync");
     dgr.send_cmd(&[jtagmk2::Commands::GetSync as u8]);
     let a = dgr.recv_result();
     dgr.increase_seqno();
 
+    println!(">>> Will get param 0x01");
+    dgr.send_cmd(&[jtagmk2::Commands::GetParam as u8, 0x01]);
+    let a = dgr.recv_result();
+    dgr.increase_seqno();
+
+    println!(">>> Will get param 0x02");
+    dgr.send_cmd(&[jtagmk2::Commands::GetParam as u8, 0x02]);
+    let a = dgr.recv_result();
+    dgr.increase_seqno();
+
+    // AT this point we have the device descriptor
+    println!("Will set device descriptor");
+    dgr.send_cmd(jtagmk2::SET_DEV_DESCRIPTOR);
+    let a = dgr.recv_result();
+    dgr.increase_seqno();
+
+    //Set bd rate to 115200
+    println!(">>> Will set baud rate");
     dgr.send_cmd(&[jtagmk2::Commands::SetParam as u8, 0x05, 0x07]);
     dgr.recv_result();
     dgr.increase_seqno();
+    dgr.port.set_baud_rate(115200);
 
-    //    dgr.send_cmd(&[jtagmk2::Commands::Reset as u8, 0x01]);
-    //    let a = dgr.recv_result();
-    //    dgr.increase_seqno();
-
-    //let dev_descr = [0; 248];
-    //let cmd = vec![jtagmk2::Commands::SetDeviceDescriptor];
-    //cmd.extend(dev_descr.iter());
-    //dgr.send_cmd(cmd.as_slice());
-    dgr.send_cmd(&[jtagmk2::Commands::SetDeviceDescriptor as u8]);
+    // XXX Set device descriptor
+    dgr.send_cmd(&[jtagmk2::Commands::SetDeviceDescriptor as u8, 0x05, 0x07]);
     dgr.recv_result();
+    dgr.increase_seqno();
+    dgr.port.set_baud_rate(115200);
 
+    //println!(">>> Will reset");
+    //dgr.send_cmd(&[jtagmk2::Commands::Reset as u8, 0x01]);
+    //let a = dgr.recv_result();
+    //dgr.increase_seqno();
+
+    println!(">>> Will enter progmode");
     dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
+    let a = dgr.recv_result();
+    println!(">>> {:?}", a.unwrap());
+
+    println!(">>> Will enter progmode (again)");
+    dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
+    let a = dgr.recv_result();
+    println!(">>> {:?}", a.unwrap());
+
+    // Will send read mem
+    println!(">>> Will read mem (signature 1)");
+    dgr.send_cmd(&[
+        jtagmk2::Commands::ReadMemory as u8,
+        0xb4,
+        0x01,
+        0,
+        0,
+        0,
+        0,
+        0x11,
+        0,
+        0,
+    ]);
+    let a = dgr.recv_result();
+    println!(">>> {:?}", a.unwrap());
+
+    println!(">>> Will read mem (signature 2)");
+    dgr.send_cmd(&[
+        jtagmk2::Commands::ReadMemory as u8,
+        0xb4,
+        0x01,
+        0,
+        0,
+        0,
+        0x01,
+        0x11,
+        0,
+        0,
+    ]);
+    let a = dgr.recv_result();
+    println!(">>> {:?}", a.unwrap());
+
+    println!(">>> Will read mem (signature 3)");
+    dgr.send_cmd(&[
+        jtagmk2::Commands::ReadMemory as u8,
+        0xb4,
+        0x01,
+        0,
+        0,
+        0,
+        0x02,
+        0x11,
+        0,
+        0,
+    ]);
     let a = dgr.recv_result();
     println!(">>> {:?}", a.unwrap());
 
