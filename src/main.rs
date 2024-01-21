@@ -44,18 +44,18 @@ fn main() {
     let a = dgr.recv_result();
     dgr.increase_seqno();
 
-    // AT this point we have the device descriptor
-    println!("Will set device descriptor");
-    dgr.send_cmd(jtagmk2::SET_DEV_DESCRIPTOR);
-    let a = dgr.recv_result();
-    dgr.increase_seqno();
-
     //Set bd rate to 115200
     println!(">>> Will set baud rate");
     dgr.send_cmd(&[jtagmk2::Commands::SetParam as u8, 0x05, 0x07]);
     dgr.recv_result();
     dgr.increase_seqno();
     dgr.port.set_baud_rate(115200);
+
+    // AT this point we have the device descriptor
+    println!("Will set device descriptor");
+    dgr.send_cmd(jtagmk2::SET_DEV_DESCRIPTOR);
+    let a = dgr.recv_result();
+    dgr.increase_seqno();
 
     // XXX Set device descriptor
     dgr.send_cmd(&[jtagmk2::Commands::SetDeviceDescriptor as u8, 0x05, 0x07]);
@@ -148,7 +148,7 @@ fn main() {
 
         let mut addr_buf = [0u8; 2];
         LittleEndian::write_u16(&mut addr_buf, mem_addr);
-        println!("Will ask {}", mem_addr);
+        println!("Will ask {:02x?}", mem_addr);
         dgr.send_cmd(&[
             jtagmk2::Commands::ReadMemory as u8,
             0,
