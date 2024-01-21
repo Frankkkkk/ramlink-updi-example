@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{io, time::Duration};
 
 use byteorder::{ByteOrder, LittleEndian};
 
@@ -71,12 +71,10 @@ fn main() {
     println!(">>> Will enter progmode");
     dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
     let a = dgr.recv_result();
-    println!(">>> {:?}", a.unwrap());
 
     println!(">>> Will enter progmode (again)");
     dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
     let a = dgr.recv_result();
-    println!(">>> {:?}", a.unwrap());
 
     // Will send read mem
     println!(">>> Will read mem (signature 1)");
@@ -93,7 +91,6 @@ fn main() {
         0,
     ]);
     let a = dgr.recv_result();
-    println!(">>> {:?}", a.unwrap());
 
     println!(">>> Will read mem (signature 2)");
     dgr.send_cmd(&[
@@ -109,7 +106,6 @@ fn main() {
         0,
     ]);
     let a = dgr.recv_result();
-    println!(">>> {:?}", a.unwrap());
 
     println!(">>> Will read mem (signature 3)");
     dgr.send_cmd(&[
@@ -125,7 +121,6 @@ fn main() {
         0,
     ]);
     let a = dgr.recv_result();
-    println!(">>> {:?}", a.unwrap());
 
     /* Flash looks like so:
     18465     memory "flash"
@@ -139,29 +134,36 @@ fn main() {
 
          */
 
-    println!("Hello !");
-    //for mem_addr in 0x3ff0..0x3fff {
-    for mem_addr in 0x8000..0x8010 {
-        println!("in for!");
-        let mut numbytes_buf = [0u8; 2];
-        LittleEndian::write_u16(&mut numbytes_buf, 1);
+    //for mem_addr in 0x3f00..0x3fff {
+    //for mem_addr in 0x8000..0x8010 {
+    loop {
+        let mut ram: Vec<u8> = vec![];
+        for mem_addr in 0x3f00..0x3f0f {
+            let mut numbytes_buf = [0u8; 2];
+            LittleEndian::write_u16(&mut numbytes_buf, 1);
 
-        let mut addr_buf = [0u8; 2];
-        LittleEndian::write_u16(&mut addr_buf, mem_addr);
-        println!("Will ask {:02x?}", mem_addr);
-        dgr.send_cmd(&[
-            jtagmk2::Commands::ReadMemory as u8,
-            0,
-            numbytes_buf[0],
-            numbytes_buf[1],
-            0,
-            0,
-            addr_buf[0],
-            addr_buf[1],
-        ]);
+            let mut addr_buf = [0u8; 2];
+            LittleEndian::write_u16(&mut addr_buf, mem_addr);
+            dgr.send_cmd(&[
+                jtagmk2::Commands::ReadMemory as u8,
+                0,
+                numbytes_buf[0],
+                numbytes_buf[1],
+                0,
+                0,
+                addr_buf[0],
+                addr_buf[1],
+            ]);
 
-        let rcv = dgr.recv_result().unwrap();
-        println!("RECVD: {:?}", rcv);
-        println!("ADDR {mem_addr:02x} = {:02x?}", rcv.data[0]);
+            let rcv = dgr.recv_result().unwrap();
+            //println!("ADDR {mem_addr:02x} = {:02x?}", rcv.data[0]);
+            ram.push(rcv.data[0]);
+        }
+
+        for chunk in ram.chunks(10) {
+            println!("{:02x?}", chunk)
+        }
+        let mut _buffer = String::new();
+        io::stdin().read_line(&mut _buffer);
     }
 }

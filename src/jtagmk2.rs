@@ -156,7 +156,7 @@ impl<'a> JtagIceMkii<'_> {
         };
 
         let raw_cmd = cmd.to_raw();
-        println!("will send: {:02x?} => {:02x?}", cmd, raw_cmd);
+        //println!("will send: {:02x?} => {:02x?}", cmd, raw_cmd);
         self.port.write(&raw_cmd).unwrap(); // XXX Return an error
     }
     pub fn recv_result(&mut self) -> Result<JtagIceMkiiReply, String> {
@@ -176,18 +176,18 @@ impl<'a> JtagIceMkii<'_> {
                     raw_data.truncate(total_data_length + 6);
                 }
                 Err(_err) => {
-                    println!("Didn't receive shit");
+                    //println!("Didn't receive shit");
                     return Err(format!("Didnot recieve shit"));
                 }
             }
         }
 
-        println!("RAW DATA: {:02x?}", raw_data);
+        //println!("RAW DATA: {:02x?}", raw_data);
 
         let reply = JtagIceMkiiReply::from_raw(&raw_data).unwrap();
-        println!("Received: {:02x?}", reply);
+        //println!("Received: {:02x?}", reply);
         if reply.seqno != self.seqno {
-            println!("Seqno not the same !");
+            //println!("Seqno not the same !");
             return Err(format!("SEQNO is not the same"));
         }
         //println!("CMD: {:02x?}", cmd);
