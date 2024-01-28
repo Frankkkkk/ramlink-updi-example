@@ -18,29 +18,8 @@ fn main() {
 
     let mut dgr = jtagmk2::JtagIceMkii::new(port);
 
-    /*
-    dgr.send_cmd(&[jtagmk2::Commands::GetSignOn as u8]);
-    dgr.recv_result();
-
-    dgr.send_cmd(&[jtagmk2::Commands::GetSignOn as u8]);
-    dgr.recv_result();
-    dgr.increase_seqno();
-    */
-
     dgr.sign_on();
     dgr.sign_on();
-
-    /*
-    println!(">>> Will set param");
-    dgr.send_cmd(&[jtagmk2::Commands::SetParam as u8, 0x03, 0x06]);
-    dgr.recv_result();
-    dgr.increase_seqno();
-
-    println!(">>> Will get sync");
-    dgr.send_cmd(&[jtagmk2::Commands::GetSync as u8]);
-    let a = dgr.recv_result();
-    dgr.increase_seqno();
-    */
 
     //Set bd rate to 115200
     println!(">>> Will set baud rate");
@@ -49,20 +28,13 @@ fn main() {
     dgr.increase_seqno();
     dgr.port.set_baud_rate(115200);
 
-    /*
-    // AT this point we have the device descriptor
-    println!("Will set device descriptor");
-    dgr.send_cmd(jtagmk2::SET_DEV_DESCRIPTOR);
-    let a = dgr.recv_result();
-    dgr.increase_seqno();
-    */
-
     // XXX Set device descriptor
     println!("Will set device descriptor again ?!");
     dgr.send_cmd(&[jtagmk2::Commands::SetDeviceDescriptor as u8, 0x05, 0x07]);
     dgr.recv_result();
     dgr.increase_seqno();
     dgr.port.set_baud_rate(115200);
+
     //*/
     //for mem_addr in 0x3f00..0x3fff {
     //for mem_addr in 0x8000..0x8010 {
