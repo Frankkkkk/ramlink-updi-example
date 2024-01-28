@@ -1,9 +1,4 @@
-use core::num;
 use std::{io, time::Duration};
-
-use byteorder::{ByteOrder, LittleEndian};
-
-//use crate::jtagmk2::JtagIceMkiiCommand;
 
 mod jtagmk2;
 
@@ -18,22 +13,26 @@ fn main() {
 
     let mut dgr = jtagmk2::JtagIceMkii::new(port);
 
-    dgr.sign_on();
-    dgr.sign_on();
+    let _ = dgr.sign_on();
+    dgr.sign_on().expect("Couldn't sign on");
 
     //Set bd rate to 115200
     println!(">>> Will set baud rate");
     dgr.send_cmd(&[jtagmk2::Commands::SetParam as u8, 0x05, 0x07]);
-    dgr.recv_result();
+    dgr.recv_result().expect("Couldn't set bd rate");
     dgr.increase_seqno();
-    dgr.port.set_baud_rate(115200);
+    dgr.port
+        .set_baud_rate(115200)
+        .expect("Couldnot set bd rate on serial");
 
     // XXX Set device descriptor
     println!("Will set device descriptor again ?!");
     dgr.send_cmd(&[jtagmk2::Commands::SetDeviceDescriptor as u8, 0x05, 0x07]);
-    dgr.recv_result();
+    dgr.recv_result().expect("Couldn't set device descriptor");
     dgr.increase_seqno();
-    dgr.port.set_baud_rate(115200);
+    dgr.port
+        .set_baud_rate(115200)
+        .expect("Couldn't set bd rate on serial");
 
     //*/
     //for mem_addr in 0x3f00..0x3fff {

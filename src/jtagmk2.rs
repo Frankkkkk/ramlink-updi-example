@@ -1,11 +1,12 @@
 use byteorder::{ByteOrder, LittleEndian};
 use serialport::SerialPort;
-use std::{fmt, io};
+use std::fmt;
 
 #[path = "crc16.rs"]
 mod crc16;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Commands {
     MessageStart = 0x1b,
     Token = 0x0e,
@@ -142,8 +143,8 @@ impl<'a> JtagIceMkii<'_> {
         };
 
         match result.reply {
-            Replies::Ok => return Ok(result),
-            _ => return Err(JtagIceMkiiError::NotOk),
+            Replies::SignOn => return Ok(result),
+            _ => return Err(JtagIceMkiiError::NotOk(result.reply)),
         }
     }
 
@@ -200,14 +201,12 @@ impl<'a> JtagIceMkii<'_> {
             value,
         ]);
 
-        let rcv = match self.recv_result() {
-            Ok(x) => x,
+        //self.increase_seqno();
+
+        match self.recv_result() {
+            Ok(_) => Ok(()),
             Err(x) => return Err(x),
-        };
-
-        self.increase_seqno();
-
-        Ok(())
+        }
     }
 
     pub fn increase_seqno(&mut self) {
@@ -247,10 +246,12 @@ impl<'a> JtagIceMkii<'_> {
         }
 
         let reply = JtagIceMkiiReply::from_raw(&raw_data).unwrap();
-        //println!("Received: {:02x?}", reply);
         if reply.seqno != self.seqno {
             return Err(JtagIceMkiiError::DifferentSeqNo);
         }
+
+        // Now that we have received data, we can increase the seqno
+        //self.increase_seqno();
 
         return Ok(reply);
     }
@@ -558,11 +559,11 @@ pub const SET_DEV_DESCRIPTOR: &[u8] = &[
     00,
 ];
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+//#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum JtagIceMkiiError {
     NoReply,
     DifferentSeqNo,
-    NotOk,
+    NotOk(Replies),
     UnmarshallTokenError,
     UnmarshallMessageStart,
     UnmarshallCrc,
@@ -577,7 +578,9 @@ impl fmt::Debug for JtagIceMkiiError {
         match self {
             JtagIceMkiiError::NoReply => f.pad("No Reply"),
             JtagIceMkiiError::DifferentSeqNo => f.pad("Seqno ≠"),
-            JtagIceMkiiError::NotOk => f.pad("Reply code was not 'OK'"),
+            JtagIceMkiiError::NotOk(rep) => {
+                f.pad(&format!("Reply code was not 'OK', but {:?} instead", rep))
+            }
             JtagIceMkiiError::UnmarshallTokenError => f.pad("Unmarshall token error"),
             JtagIceMkiiError::UnmarshallCrc => f.pad("Unmarshall CRC check failed"),
             JtagIceMkiiError::UnknownReplyCmnd => f.pad("Unknown reply command code"),
