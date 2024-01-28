@@ -32,10 +32,6 @@ pub enum Replies {
     Failed = 0xA0,
     IllegalMcuState = 0xA5,
     NoTargetPower = 0xAB,
-    NoTargetPower1 = 0xC1,
-    NoTargetPower2 = 0xC2,
-    NoTargetPower3 = 0xC3,
-    NoTargetPower4 = 0xC4,
 }
 
 impl Replies {
@@ -49,22 +45,8 @@ impl Replies {
             0xA0 => Some(Replies::Failed),
             0xA5 => Some(Replies::IllegalMcuState),
             0xAB => Some(Replies::NoTargetPower),
-            0xC1 => Some(Replies::NoTargetPower1),
-            0xC2 => Some(Replies::NoTargetPower2),
-            0xC3 => Some(Replies::NoTargetPower3),
-            0xC4 => Some(Replies::NoTargetPower4),
-
             _ => None,
         }
-    }
-}
-
-#[derive(Debug)]
-struct MyError;
-
-impl fmt::Display for MyError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Custom error message")
     }
 }
 
@@ -104,34 +86,35 @@ impl JtagIceMkiiCommand {
     }
 }
 impl JtagIceMkiiReply {
-    fn from_raw(raw_data: &[u8]) -> Result<JtagIceMkiiReply, String> {
+    fn from_raw(raw_data: &[u8]) -> Result<JtagIceMkiiReply, JtagIceMkiiError> {
         if raw_data[0] != Commands::MessageStart as u8 {
-            return Err(format!("Fucked up message start"));
+            return Err(JtagIceMkiiError::UnmarshallMessageStart);
         }
 
         let seqno = LittleEndian::read_u16(&raw_data[1..=2]);
         let data_len = LittleEndian::read_u32(&raw_data[3..=6]) as usize + 8 + 2;
 
         if raw_data[7] != Commands::Token as u8 {
-            return Err(format!("Fucked up token"));
+            return Err(JtagIceMkiiError::UnmarshallTokenError);
         }
 
         let calculated_crc = crc16::crcsum(&raw_data[0..data_len - 2]);
         let recvd_crc = LittleEndian::read_u16(&raw_data[data_len - 2..]);
 
         if calculated_crc != recvd_crc {
-            return Err(format!(
-                "CRC is fucked up. Recvd {}, calculated: {}",
-                recvd_crc, calculated_crc,
-            ));
+            return Err(JtagIceMkiiError::UnmarshallCrc);
         }
 
         let useful_data: Vec<u8> = raw_data[8..data_len - 2].to_vec();
 
+        let reply_code = match Replies::from_code(useful_data[0]) {
+            Some(x) => x,
+            None => return Err(JtagIceMkiiError::UnknownReplyCmnd),
+        };
+
         let cmd = JtagIceMkiiReply {
             seqno: seqno,
-            reply: Replies::from_code(useful_data[0])
-                .expect(&format!("Unknown code {:02x}", useful_data[0])),
+            reply: reply_code,
             data: useful_data
                 .get(1..)
                 .map_or_else(|| Vec::new(), |slice| slice.to_vec()),
@@ -150,9 +133,52 @@ impl<'a> JtagIceMkii<'_> {
     pub fn new(port: Box<dyn SerialPort>) -> JtagIceMkii<'a> {
         JtagIceMkii { port, seqno: 0 }
     }
+
+    pub fn sign_on(&mut self) -> Result<JtagIceMkiiReply, JtagIceMkiiError> {
+        self.send_cmd(&[Commands::GetSignOn as u8]);
+        let result = match self.recv_result() {
+            Ok(x) => x,
+            Err(x) => return Err(x),
+        };
+
+        match result.reply {
+            Replies::Ok => return Ok(result),
+            _ => return Err(JtagIceMkiiError::NotOk),
+        }
+    }
+
+    pub fn read_ram_byte(&mut self, mem_addr: u16) -> Result<u8, JtagIceMkiiError> {
+        const NUM_BYTES_TO_READ: u16 = 1;
+
+        let mut numbytes_buf = [0u8; 2];
+        LittleEndian::write_u16(&mut numbytes_buf, NUM_BYTES_TO_READ);
+
+        let mut addr_buf = [0u8; 2];
+        LittleEndian::write_u16(&mut addr_buf, mem_addr);
+
+        self.send_cmd(&[
+            Commands::ReadMemory as u8,
+            0,
+            numbytes_buf[0],
+            numbytes_buf[1],
+            0,
+            0,
+            addr_buf[0],
+            addr_buf[1],
+        ]);
+
+        let rcv = match self.recv_result() {
+            Ok(x) => x,
+            Err(x) => return Err(x),
+        };
+
+        Ok(rcv.data[0])
+    }
+
     pub fn increase_seqno(&mut self) {
         self.seqno += 1;
     }
+
     pub fn send_cmd(&mut self, data: &[u8]) {
         let cmd = JtagIceMkiiCommand {
             seqno: self.seqno,
@@ -160,17 +186,13 @@ impl<'a> JtagIceMkii<'_> {
         };
 
         let raw_cmd = cmd.to_raw();
-        println!("will send: {:02x?} => {:02x?} ?", cmd, raw_cmd);
-        /*
-               let mut _buffer = String::new();
-               io::stdin().read_line(&mut _buffer);
-        */
+        //println!("will send: {:02x?} => {:02x?} ?", cmd, raw_cmd);
         self.port.write(&raw_cmd).unwrap(); // XXX Return an error
     }
-    pub fn recv_result(&mut self) -> Result<JtagIceMkiiReply, String> {
+
+    pub fn recv_result(&mut self) -> Result<JtagIceMkiiReply, JtagIceMkiiError> {
         let mut raw_data: Vec<u8> = vec![0; 0];
         let mut total_data_length: usize = 6; // read at least 6 char (that contain the size)
-                                              //
 
         while raw_data.len() < total_data_length {
             let mut buf: Vec<u8> = vec![0; 2000];
@@ -184,21 +206,17 @@ impl<'a> JtagIceMkii<'_> {
                     raw_data.truncate(total_data_length + 6);
                 }
                 Err(_err) => {
-                    //println!("Didn't receive shit");
-                    return Err(format!("Didnot recieve shit"));
+                    return Err(JtagIceMkiiError::NoReply);
                 }
             }
         }
 
-        //println!("RAW DATA: {:02x?}", raw_data);
-
         let reply = JtagIceMkiiReply::from_raw(&raw_data).unwrap();
-        println!("Received: {:02x?}", reply);
+        //println!("Received: {:02x?}", reply);
         if reply.seqno != self.seqno {
-            //println!("Seqno not the same !");
-            return Err(format!("SEQNO is not the same"));
+            return Err(JtagIceMkiiError::DifferentSeqNo);
         }
-        //println!("CMD: {:02x?}", cmd);
+
         return Ok(reply);
     }
 }
@@ -504,3 +522,51 @@ pub const SET_DEV_DESCRIPTOR: &[u8] = &[
     0x3f,
     00,
 ];
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum JtagIceMkiiError {
+    NoReply,
+    DifferentSeqNo,
+    NotOk,
+    UnmarshallTokenError,
+    UnmarshallMessageStart,
+    UnmarshallCrc,
+    UnknownReplyCmnd,
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for JtagIceMkiiError {}
+
+impl fmt::Debug for JtagIceMkiiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JtagIceMkiiError::NoReply => f.pad("No Reply"),
+            JtagIceMkiiError::DifferentSeqNo => f.pad("Seqno ≠"),
+            JtagIceMkiiError::NotOk => f.pad("Reply code was not 'OK'"),
+            JtagIceMkiiError::UnmarshallTokenError => f.pad("Unmarshall token error"),
+            JtagIceMkiiError::UnmarshallCrc => f.pad("Unmarshall CRC check failed"),
+            JtagIceMkiiError::UnknownReplyCmnd => f.pad("Unknown reply command code"),
+            JtagIceMkiiError::UnmarshallMessageStart => {
+                f.pad("Reply message doesn't start with MessageStart")
+            }
+        }
+    }
+}
+
+/*
+impl fmt::Display for JtagIceMkiiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JtagIceMkiiError::NoReply => "No reply".fmt(f),
+            JtagIceMkiiError::DifferentSeqNo => "Different sequence number".fmt(f),
+            JtagIceMkiiError::UnmarshallTokenError => "Unmarshall token error".fmt(f),
+            JtagIceMkiiError::UnmarshallCrc => "Unmarshall CRC check failed".fmt(f),
+            JtagIceMkiiError::UnknownReplyCmnd => "Unknown reply command code".fmt(f),
+            JtagIceMkiiError::UnmarshallMessageStart => {
+                "Reply message doesn't start with MessageStart".fmt(f)
+            }
+        }
+    }
+}
+
+*/
