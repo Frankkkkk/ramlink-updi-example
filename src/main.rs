@@ -1,3 +1,4 @@
+use core::num;
 use std::{io, time::Duration};
 
 use byteorder::{ByteOrder, LittleEndian};
@@ -174,6 +175,29 @@ fn main() {
         //        println!(">>> Will run GO");
         //       dgr.send_cmd(&[jtagmk2::Commands::Go as u8]);
         //      let a = dgr.recv_result();
+
+        // Will write a memory byte
+        let w_addr = 0x3f00;
+        let w_value = 0x88;
+        let mut numbytes_buf = [0u8; 2];
+        LittleEndian::write_u16(&mut numbytes_buf, 1);
+
+        let mut addr_buf = [0u8; 2];
+        LittleEndian::write_u16(&mut addr_buf, w_addr);
+        dgr.send_cmd(&[
+            jtagmk2::Commands::WriteMemory as u8,
+            0x20, // Mem type SRAM
+            numbytes_buf[0],
+            numbytes_buf[1],
+            0,
+            0,
+            addr_buf[0],
+            addr_buf[1],
+            0,
+            0,
+            w_value,
+        ]);
+        let rcv = dgr.recv_result().unwrap();
 
         println!("Continue loop ?");
         let mut _buffer = String::new();

@@ -13,6 +13,7 @@ pub enum Commands {
     GetSignOn = 0x01,
     SetParam = 0x02,
     GetParam = 0x03,
+    WriteMemory = 0x04,
     ReadMemory = 0x05,
     Go = 0x08,
     Reset = 0x0b,
