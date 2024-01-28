@@ -67,33 +67,8 @@ fn main() {
     //for mem_addr in 0x3f00..0x3fff {
     //for mem_addr in 0x8000..0x8010 {
     loop {
-        //        println!(">>> Will enter progmode");
-        //        dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
-        //        let a = dgr.recv_result();
-
         let mut ram: Vec<u8> = vec![];
         for mem_addr in 0x3f00..0x3f0f {
-            /*
-            let mut numbytes_buf = [0u8; 2];
-            LittleEndian::write_u16(&mut numbytes_buf, 1);
-
-            let mut addr_buf = [0u8; 2];
-            LittleEndian::write_u16(&mut addr_buf, mem_addr);
-            dgr.send_cmd(&[
-                jtagmk2::Commands::ReadMemory as u8,
-                0,
-                numbytes_buf[0],
-                numbytes_buf[1],
-                0,
-                0,
-                addr_buf[0],
-                addr_buf[1],
-            ]);
-
-            let rcv = dgr.recv_result().unwrap();
-            //println!("ADDR {mem_addr:02x} = {:02x?}", rcv.data[0]);
-            ram.push(rcv.data[0]);
-            */
             let byte = dgr.read_ram_byte(mem_addr);
             match byte {
                 Ok(val) => ram.push(val),
@@ -105,32 +80,8 @@ fn main() {
             println!("{:02x?}", chunk)
         }
 
-        //        println!(">>> Will run GO");
-        //       dgr.send_cmd(&[jtagmk2::Commands::Go as u8]);
-        //      let a = dgr.recv_result();
-
-        // Will write a memory byte
-        let w_addr = 0x3f00;
-        let w_value = 0x88;
-        let mut numbytes_buf = [0u8; 2];
-        LittleEndian::write_u16(&mut numbytes_buf, 1);
-
-        let mut addr_buf = [0u8; 2];
-        LittleEndian::write_u16(&mut addr_buf, w_addr);
-        dgr.send_cmd(&[
-            jtagmk2::Commands::WriteMemory as u8,
-            0x20, // Mem type SRAM
-            numbytes_buf[0],
-            numbytes_buf[1],
-            0,
-            0,
-            addr_buf[0],
-            addr_buf[1],
-            0,
-            0,
-            w_value,
-        ]);
-        let rcv = dgr.recv_result().unwrap();
+        dgr.write_ram_byte(0x3f00, 0x43)
+            .expect("Couldn't write ram");
 
         println!("Continue loop ?");
         let mut _buffer = String::new();

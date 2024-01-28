@@ -172,7 +172,42 @@ impl<'a> JtagIceMkii<'_> {
             Err(x) => return Err(x),
         };
 
+        self.increase_seqno();
+
         Ok(rcv.data[0])
+    }
+
+    pub fn write_ram_byte(&mut self, mem_addr: u16, value: u8) -> Result<(), JtagIceMkiiError> {
+        const NUM_BYTES_TO_WRITE: u16 = 1;
+
+        let mut numbytes_buf = [0u8; 2];
+        LittleEndian::write_u16(&mut numbytes_buf, NUM_BYTES_TO_WRITE);
+
+        let mut addr_buf = [0u8; 2];
+        LittleEndian::write_u16(&mut addr_buf, mem_addr);
+
+        self.send_cmd(&[
+            Commands::WriteMemory as u8,
+            0x20, // Mem type SRAM
+            numbytes_buf[0],
+            numbytes_buf[1],
+            0,
+            0,
+            addr_buf[0],
+            addr_buf[1],
+            0,
+            0,
+            value,
+        ]);
+
+        let rcv = match self.recv_result() {
+            Ok(x) => x,
+            Err(x) => return Err(x),
+        };
+
+        self.increase_seqno();
+
+        Ok(())
     }
 
     pub fn increase_seqno(&mut self) {
