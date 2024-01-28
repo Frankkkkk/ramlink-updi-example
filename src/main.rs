@@ -58,6 +58,7 @@ fn main() {
     dgr.increase_seqno();
 
     // XXX Set device descriptor
+    println!("Will set device descriptor again ?!");
     dgr.send_cmd(&[jtagmk2::Commands::SetDeviceDescriptor as u8, 0x05, 0x07]);
     dgr.recv_result();
     dgr.increase_seqno();
@@ -68,15 +69,16 @@ fn main() {
     //let a = dgr.recv_result();
     //dgr.increase_seqno();
 
-    println!(">>> Will enter progmode");
-    dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
-    let a = dgr.recv_result();
+    //    println!(">>> Will enter progmode");
+    //    dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
+    //    let a = dgr.recv_result();
 
-    println!(">>> Will enter progmode (again)");
-    dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
-    let a = dgr.recv_result();
+    //    println!(">>> Will enter progmode (again)");
+    //    dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
+    //    let a = dgr.recv_result();
 
     // Will send read mem
+    /*
     println!(">>> Will read mem (signature 1)");
     dgr.send_cmd(&[
         jtagmk2::Commands::ReadMemory as u8,
@@ -121,6 +123,7 @@ fn main() {
         0,
     ]);
     let a = dgr.recv_result();
+    */
 
     /* Flash looks like so:
     18465     memory "flash"
@@ -137,6 +140,10 @@ fn main() {
     //for mem_addr in 0x3f00..0x3fff {
     //for mem_addr in 0x8000..0x8010 {
     loop {
+        //        println!(">>> Will enter progmode");
+        //        dgr.send_cmd(&[jtagmk2::Commands::EnterProgMode as u8]);
+        //        let a = dgr.recv_result();
+
         let mut ram: Vec<u8> = vec![];
         for mem_addr in 0x3f00..0x3f0f {
             let mut numbytes_buf = [0u8; 2];
@@ -163,6 +170,12 @@ fn main() {
         for chunk in ram.chunks(10) {
             println!("{:02x?}", chunk)
         }
+
+        //        println!(">>> Will run GO");
+        //       dgr.send_cmd(&[jtagmk2::Commands::Go as u8]);
+        //      let a = dgr.recv_result();
+
+        println!("Continue loop ?");
         let mut _buffer = String::new();
         io::stdin().read_line(&mut _buffer);
     }

@@ -1,6 +1,6 @@
 use byteorder::{ByteOrder, LittleEndian};
 use serialport::SerialPort;
-use std::fmt;
+use std::{fmt, io};
 
 #[path = "crc16.rs"]
 mod crc16;
@@ -14,6 +14,7 @@ pub enum Commands {
     SetParam = 0x02,
     GetParam = 0x03,
     ReadMemory = 0x05,
+    Go = 0x08,
     Reset = 0x0b,
     SetDeviceDescriptor = 0x0c,
     GetSync = 0x0f,
@@ -28,6 +29,7 @@ pub enum Replies {
     Memory = 0x82,
     SignOn = 0x86,
     Failed = 0xA0,
+    IllegalMcuState = 0xA5,
     NoTargetPower = 0xAB,
     NoTargetPower1 = 0xC1,
     NoTargetPower2 = 0xC2,
@@ -44,6 +46,7 @@ impl Replies {
             0x82 => Some(Replies::Memory),
             0x86 => Some(Replies::SignOn),
             0xA0 => Some(Replies::Failed),
+            0xA5 => Some(Replies::IllegalMcuState),
             0xAB => Some(Replies::NoTargetPower),
             0xC1 => Some(Replies::NoTargetPower1),
             0xC2 => Some(Replies::NoTargetPower2),
@@ -156,7 +159,11 @@ impl<'a> JtagIceMkii<'_> {
         };
 
         let raw_cmd = cmd.to_raw();
-        //println!("will send: {:02x?} => {:02x?}", cmd, raw_cmd);
+        println!("will send: {:02x?} => {:02x?} ?", cmd, raw_cmd);
+        /*
+               let mut _buffer = String::new();
+               io::stdin().read_line(&mut _buffer);
+        */
         self.port.write(&raw_cmd).unwrap(); // XXX Return an error
     }
     pub fn recv_result(&mut self) -> Result<JtagIceMkiiReply, String> {
@@ -185,7 +192,7 @@ impl<'a> JtagIceMkii<'_> {
         //println!("RAW DATA: {:02x?}", raw_data);
 
         let reply = JtagIceMkiiReply::from_raw(&raw_data).unwrap();
-        //println!("Received: {:02x?}", reply);
+        println!("Received: {:02x?}", reply);
         if reply.seqno != self.seqno {
             //println!("Seqno not the same !");
             return Err(format!("SEQNO is not the same"));
