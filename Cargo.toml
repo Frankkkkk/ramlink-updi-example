@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 byteorder = "1.5.0"
+ramlink = { version = "0.1.0", path = "../rust-ramlink" }
 serialport = "4.3.0"

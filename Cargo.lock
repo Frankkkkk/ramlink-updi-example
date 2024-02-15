@@ -36,6 +36,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "const-assert"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8298db53081b3a951cadb6e0f4ebbe36def7bcb591a34676708d0d7ac87dd86"
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -128,6 +134,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ramlink"
+version = "0.1.0"
+dependencies = [
+ "const-assert",
+]
+
+[[package]]
 name = "regex"
 version = "1.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -161,6 +174,7 @@ name = "rust-jtag-mkii"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "ramlink",
  "serialport",
 ]
 

@@ -5,6 +5,9 @@ use std::fmt;
 #[path = "crc16.rs"]
 mod crc16;
 
+// C.f. JTAGICE mkII Comm. Protocol
+// https://ww1.microchip.com/downloads/en/Appnotes/doc2587.pdf
+
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum Commands {
@@ -110,7 +113,7 @@ impl JtagIceMkiiReply {
 
         let reply_code = match Replies::from_code(useful_data[0]) {
             Some(x) => x,
-            None => return Err(JtagIceMkiiError::UnknownReplyCmnd),
+            None => return Err(JtagIceMkiiError::UnknownReplyCmnd(useful_data[0])),
         };
 
         let cmd = JtagIceMkiiReply {
@@ -159,7 +162,7 @@ impl<'a> JtagIceMkii<'_> {
 
         self.send_cmd(&[
             Commands::ReadMemory as u8,
-            0,
+            0x20,
             numbytes_buf[0],
             numbytes_buf[1],
             0,
@@ -220,7 +223,7 @@ impl<'a> JtagIceMkii<'_> {
         };
 
         let raw_cmd = cmd.to_raw();
-        //println!("will send: {:02x?} => {:02x?} ?", cmd, raw_cmd);
+        //        println!("will send: {:02x?} => {:02x?} ?", cmd, raw_cmd);
         self.port.write(&raw_cmd).unwrap(); // XXX Return an error
     }
 
@@ -567,7 +570,7 @@ pub enum JtagIceMkiiError {
     UnmarshallTokenError,
     UnmarshallMessageStart,
     UnmarshallCrc,
-    UnknownReplyCmnd,
+    UnknownReplyCmnd(u8),
 }
 
 #[cfg(feature = "std")]
@@ -583,7 +586,9 @@ impl fmt::Debug for JtagIceMkiiError {
             }
             JtagIceMkiiError::UnmarshallTokenError => f.pad("Unmarshall token error"),
             JtagIceMkiiError::UnmarshallCrc => f.pad("Unmarshall CRC check failed"),
-            JtagIceMkiiError::UnknownReplyCmnd => f.pad("Unknown reply command code"),
+            JtagIceMkiiError::UnknownReplyCmnd(code) => {
+                f.pad(&format!("Unknown reply command code {:02x}", code))
+            }
             JtagIceMkiiError::UnmarshallMessageStart => {
                 f.pad("Reply message doesn't start with MessageStart")
             }
